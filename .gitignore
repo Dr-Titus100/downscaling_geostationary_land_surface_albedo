@@ -205,3 +205,27 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Ignore these folders
+data/
+documentations/
+papers/
+misc/
+nas_*/
+web*/
+webmap*/
+
+# Ignore image files
+*.png
+*.jpg
+*.jpeg
+
+# Ignore HTML files
+*.html
+
+# Ignore raster files and other file formats
+*.tif
+*.drawio
+*.nc
+*.hdf
+*.tiff
