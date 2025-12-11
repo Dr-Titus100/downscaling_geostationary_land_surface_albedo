@@ -229,3 +229,5 @@ webmap*/
 *.nc
 *.hdf
 *.tiff
+*.zip
+*.tar
