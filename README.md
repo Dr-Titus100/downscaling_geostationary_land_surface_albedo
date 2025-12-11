@@ -1,2 +1,6 @@
-# downscaling_geostationary_land_surface_albedo
-Using Low-Earth Orbit Instruments and Neural Networks to Downscale Geostationary Surface Albedo Products
+# A project aimed at creating high-resolution spatio-temporal land surface albedo maps to enhance the modeling of snowmelt dynamics and water resource forecasting.
+
+## Title: Using Low-Earth Orbit Instruments and Neural Networks to Downscale Geostationary Surface Albedo Products
+
+## Abstract:
+Snow albedo is crucial for understanding changes in mountain snowpack and snowmelt, as well as for estimating water resources. In mountainous regions, climate change has significantly impacted snowpack, but the role of processes such as snowmelt and water discharge in this change remains unclear. Using a case study in the Upper Colorado River Basin, this work aims to produce high-resolution albedo maps to enhance the modeling of snowmelt dynamics and water resource forecasting. We utilize a deep learning approach to downscale spatiotemporal observations of surface albedo from the $2~km$ GOES images to $500~m$ MODIS resolution. We then downscale further to $20~m$ Sentinel-2 resolution. Because this downscaled product achieves both high spatial and high temporal resolution, the product enables detailed studies of how snow albedo evolves between acquisitions from low-earth-orbiting instruments. Output albedo from this spatiotemporal downscaling approach can potentially be assimilated into process-based snow mass and energy balance models and other land surface hydrology models to improve near-real-time estimates of snow water storage in mountain regions like the Upper Colorado. We leverage the DOE ARM Surface Atmosphere Integrated Field Laboratory (SAIL) data for ground truthing. 
