@@ -8,5 +8,6 @@ In the Upper Colorado River Basin (UCRB), USA, the seasonal mountain snowpack pr
 ## Repository Setup and Instructions
 For the purpose of reproducibility, we provide the instructions below for anyone who is interested in using/adapting our code and/or data. First, let's go through the repository structure:
 
-`GOES-Modis-Albedo-Postprocessing-main`: This directory contains a notebook file that visualizes our main results after modeling.\\
+`GOES-Modis-Albedo-Postprocessing-main`: This directory contains a notebook file that visualizes our main results after modeling.
+
 `GOES-Modis-Data-Preprocessing-main`: This directory contains GOES-MODIS preprocessing files.
