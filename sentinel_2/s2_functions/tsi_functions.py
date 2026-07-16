@@ -1,25 +1,6 @@
-# Packages
-import os
-import re
-import io
-import rasterio
-import requests
-import numpy as np
-import xarray as xr
-import pandas as pd
-import geopandas as gpd
-from pathlib import Path
-from datetime import timezone
-from pyproj import Transformer
-import matplotlib.pyplot as plt
-import planetary_computer as pc
-from contextlib import nullcontext
-from rasterio.io import MemoryFile
-from rasterio.plot import reshape_as_image
-from shapely.geometry import Point, mapping
-from typing import Optional, Tuple, Sequence
-from rasterio import windows, features, warp
-from shapely.ops import transform as shp_transform
+#!/usr/bin/env python3
+
+from packages import *
 
 ######################################################################################
 # Shape file

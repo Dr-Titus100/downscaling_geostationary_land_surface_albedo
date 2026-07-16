@@ -1,31 +1,6 @@
-# packages
-import os
-import sys
-import csv
-import json
-import math
-import warnings
-import numpy as np
-import pandas as pd
-import pystac_client
-import datetime as dt
-import rasterio as rio
-import geopandas as gpd
-import planetary_computer
-from datetime import timezone
-import matplotlib.pyplot as plt
-from rasterio.io import MemoryFile
-from collections import defaultdict
-from scipy.signal import convolve2d
-from shapely.geometry import mapping
-from rasterio.enums import Resampling
-from rasterio.transform import Affine
-from affine import Affine as AffineCls
-from rasterio.plot import plotting_extent
-from rasterio import warp, windows, features
-from pystac.extensions.eo import EOExtension as eo
-from rasterio.errors import NotGeoreferencedWarning
-from rasterio import warp, windows, features, enums
+#!/usr/bin/env python3
+
+from packages import *
 
 # stack writer
 try:
@@ -215,7 +190,7 @@ diffuse_skylight_ratio_lookup = "/bsuhome/tnde/geoscience/albedo_downscaling/GOE
 diffuse_lut = pd.read_csv(diffuse_skylight_ratio_lookup, index_col=0)  # sw_lut.csv
 USE_AOT = True # Use Aerosol Optical Thickness (AOT) from Sentinel-2 to compute the diffuse fraction, fdiff. Use Aerosol Optical Depth (AOD) from MODIS if False.
 
-function_path = os.path.expanduser("~/geoscience/albedo_downscaling/functions")
+function_path = os.path.expanduser("~/geoscience/albedo_downscaling/goes_modis_downscaling") 
 sys.path.append(function_path)
 # import MODIS helper functions.
 from modis_bluesky_albedo import get_aod_static_data, convert_last_digit_of_float, SAIL_LOCATION, aod_lookup_table_file

@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Sentinel-2 20 m Snow-Albedo Workflow with Terrain Correction + BRDF Fusion
 ----------------------------------------------------------------------------
@@ -30,24 +32,7 @@ Notes
 - If you want stricter cloud buffering, see the optional morphological dilation near the mask step.
 """
 
-import re
-import stackstac
-import numpy as np
-import pandas as pd
-import xarray as xr
-import rasterio as rio
-from pyproj import CRS
-import rioxarray as rxr
-import geopandas as gpd
-from pathlib import Path
-import earthaccess as ea
-import datetime as datetime
-from datetime import timedelta
-import planetary_computer as pc
-from pystac_client import Client
-from shapely.geometry import mapping
-from rasterio.enums import Resampling
-from pystac_client import Client as StacClient
+from packages import *
 
 # -------------------- User Inputs --------------------
 shapefile_path = "/bsuhome/tnde/scratch/felix/modis/East_River_SHP/ER_bbox.shp"
