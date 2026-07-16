@@ -1,57 +1,73 @@
-# GOES-to-MODIS U-Net Albedo Downscaling
+# GOES-to-MODIS U-Net and Shared Modules
 
-This directory contains the interactive notebook for training, evaluating, or reloading the first-stage U-Net. The model learns a pixel-to-pixel mapping from preprocessed GOES-R ABI land-surface albedo to MODIS blue-sky albedo on the common 500 m East River grid.
+This directory contains the first-stage GOES-to-MODIS U-Net workflow and the shared modules used for GOES/MODIS preprocessing, MODIS blue-sky albedo, model training, evaluation, and plotting.
 
 ## Contents
 
-| File | Description |
+| File | Responsibility |
 |---|---|
-| `run_unet.ipynb` | Notebook entry point for assembling date-matched datasets, training the model, evaluating predictions, and reviewing training history. |
-| `.gitignore` | Directory-specific ignore rule. |
+| `run_goes_modis_unet.ipynb` | Interactive driver for assembling datasets, training or loading the first-stage model, evaluating it, and reviewing outputs. |
+| `goes_modis_unet.py` | Script driver for the complete GOES-to-MODIS training and prediction workflow. |
+| `albedo_unet_fxns.py` | Date matching, raster preparation, target masks, padding, U-Net architecture, training, metrics, and prediction output. |
+| `data_preprocessing.py` | GOES and MODIS clipping, reprojection, quality screening, date checks, masking, and grid-alignment helpers. |
+| `modis_bluesky_albedo.py` | MODIS black-sky/white-sky combination and diffuse-fraction helpers. |
+| `plot_fxns.py` | Prediction rasterization, masked evaluation, date matching, field sampling, and visualization helpers. |
+| `packages.py` | Shared imports used by the Python modules in this directory. |
 
-The notebook relies on `../functions/albedo_unet1_fxns.py`. A script-based equivalent is available at `../functions/unet1_main.py`.
+These files were previously divided between `functions/` and `GOES-Modis-U-Net-Albedo-Code-main/`. Use the paths in this directory for current imports.
 
 ## Model role
 
 The first downscaling stage uses:
 
-- **predictor:** GOES ABI Level-2 LSAC land-surface albedo, aligned to the MODIS grid;
+- **predictor:** GOES ABI Level-2 LSAC albedo aligned to the MODIS grid;
 - **target:** daily MODIS blue-sky albedo;
-- **target weight:** a per-pixel validity mask derived from finite MODIS values; and
-- **output:** predicted MODIS-scale albedo rasters and arrays for dates with GOES observations.
+- **sample weight:** a per-pixel mask of finite MODIS target values; and
+- **output:** predicted MODIS-scale albedo for available GOES dates.
 
-The U-Net performs image-to-image regression, not semantic segmentation.
+This is continuous image-to-image regression.
 
 ## Prerequisites
 
-Before running this notebook, complete the workflows in `../GOES-Modis-Data-Preprocessing-main/` and verify that the following are available:
+Complete the workflows in `../GOES-Modis-Data-Preprocessing-main/` first. Required inputs include:
 
-- daily GOES 500 m-aligned GeoTIFFs;
-- daily MODIS blue-sky albedo GeoTIFFs;
-- optional GOES files masked to match the MODIS missing-pixel footprint;
-- invalid-date JSON;
-- output directories for checkpoints, models, history, predictions, and test-date metadata; and
-- consistent filenames that preserve each acquisition date.
+- aligned GOES GeoTIFFs;
+- MODIS blue-sky albedo GeoTIFFs;
+- optional GOES files masked to the MODIS footprint;
+- invalid-date metadata;
+- writable model and prediction directories; and
+- filenames that preserve acquisition dates.
 
-Create the environment from the repository root:
+Activate the project environment:
 
 ```bash
-mamba env create -f environment.yml
 conda activate sail_env
-jupyter lab
 ```
 
-A GPU is recommended for training. CPU execution is supported but can be considerably slower.
+A GPU is recommended for training.
 
-## Configure the helper module
+## Importing the modules
 
-Update the directory and output constants near the top of:
+Run notebooks from the repository root or add this directory explicitly:
 
-```text
-../functions/albedo_unet1_fxns.py
+```python
+from pathlib import Path
+import sys
+
+repo_root = Path("/path/to/downscaling_geostationary_land_surface_albedo")
+sys.path.append(str(repo_root / "goes_modis_downscaling"))
+
+from albedo_unet_fxns import *
+from data_preprocessing import *
+from modis_bluesky_albedo import *
+from plot_fxns import *
 ```
 
-The key settings are:
+The modules use `from packages import *`, so this directory must precede unrelated directories containing another `packages.py` on `sys.path`.
+
+## Configuration
+
+Review the module-level paths before import. Important settings include:
 
 ```text
 MODIS_BLUE_SKY_ALBEDO_DIR
@@ -65,244 +81,158 @@ INVALID_DATES_PATH
 TF_FELIX_MODEL_UNMASKED_PATH
 ```
 
-Update the notebook import path so it points to this repository:
+`data_preprocessing.py` also configures raw and processed satellite directories, AOI and Colorado boundaries, example files, scaling constants, and quality thresholds. It opens some of these resources during import.
 
-```python
-from pathlib import Path
-import sys
+## Date matching
 
-repo_root = Path("/path/to/downscaling_geostationary_land_surface_albedo")
-sys.path.append(str(repo_root / "functions"))
+The model helpers:
 
-from albedo_unet1_fxns import *
-```
+1. parse GOES timestamps from `_sYYYYDDDHHMM...`;
+2. parse MODIS dates from a leading `YYYYDDD` token;
+3. filter the requested date interval;
+4. remove invalid dates;
+5. prefer the selected 18 UTC GOES observation;
+6. use configured 19 UTC replacements for selected dates;
+7. retain common GOES and MODIS dates; and
+8. preserve sorted source paths for prediction georeferencing.
 
-## Data selection and date matching
-
-The helper function `get_data_and_mask(...)`:
-
-1. reads all GeoTIFFs from the configured input directory;
-2. extracts dates from GOES or MODIS filenames;
-3. restricts data to the requested interval;
-4. removes dates listed in the invalid-date JSON and hard-coded invalid-date lists;
-5. selects the preferred GOES observation time;
-6. pairs MODIS dates with available GOES dates;
-7. prepares arrays and target masks; and
-8. returns the source paths used for each date.
-
-### GOES time selection
-
-The current logic prefers an observation in the 18 UTC hour. For dates listed in `INVALID_GOES_SOLAR_NOON_DATES`, a 19 UTC scene is accepted as a fallback. Dates listed in `INVALID_GOES_DATES_BOTH` are removed.
-
-Review these lists for every new dataset or processing version.
-
-### Filename assumptions
-
-- GOES filenames must contain a start timestamp in the standard `_sYYYYDDDHHMM...` token.
-- MODIS blue-sky filenames must begin with `YYYYDDD` before the first underscore.
-
-Update `extract_goes_datetime(...)` or `extract_modis_datetime(...)` if the naming convention changes.
+Review all hard-coded invalid-date lists when the source data or preprocessing changes.
 
 ## Array preparation
 
-### GOES predictors
+### GOES input
 
-GOES input pixels are converted to `float32`, missing values are filled by linear interpolation followed by forward/backward filling, and the two-dimensional image is padded.
+GOES arrays are converted to `float32`. Missing values are interpolated and edge-filled before padding.
 
-### MODIS targets
+### MODIS target
 
-The target workflow:
+Finite MODIS pixels form the target mask. Missing target values are replaced by zero only for tensor computation; their sample weights remain zero.
 
-- records finite pixels in a mask;
-- replaces target `NaN` values with zero only for tensor computation;
-- pads the target and mask; and
-- supplies the mask as per-pixel sample weights during training and evaluation.
+### Current East River grid
 
-Filled target pixels therefore do not contribute to the loss when their mask value is zero.
-
-### Fixed East River dimensions
-
-The current first-stage grid is approximately `21 x 19` pixels. The helper pads it to `24 x 24` using:
+The first-stage native grid is approximately `21 x 19` pixels. It is padded to `24 x 24` with:
 
 ```text
-rows:    1 top, 2 bottom
-columns: 2 left, 3 right
+1 row above, 2 rows below
+2 columns left, 3 columns right
 ```
 
-Predictions are cropped back to `21 x 19` before saving.
+Predictions are cropped with the inverse operation. Update padding, cropping, and georeferencing together for another grid.
 
-For another AOI or grid, revise all of the following together:
+## U-Net configuration
 
-- `pad_da_2d(...)`;
-- `pad_mask_2d(...)`;
-- `remove_padding(...)`;
-- expected input dimensions; and
-- georeferencing checks used when writing predictions.
+The current workflow uses:
 
-The U-Net has three pooling levels, so padded height and width must be compatible with repeated factors of two.
+- one input channel;
+- three pooling/upsampling levels with skip connections;
+- convolutional encoder and decoder blocks;
+- Adam optimization at approximately `1e-4`;
+- Huber loss with `delta=0.05`;
+- RMSE as a Keras metric;
+- early stopping;
+- learning-rate reduction; and
+- checkpoint and full-model saving.
 
-## Model architecture
+Check the active source rather than assuming notebook experiments use identical settings.
 
-The current model uses:
+## Run the workflow
 
-- input shape `(24, 24, 1)`;
-- four encoder blocks;
-- three decoder blocks with skip connections;
-- 64 base filters;
-- `3 x 3` convolutions;
-- ReLU activations;
-- transposed-convolution upsampling;
-- one output channel for continuous albedo;
-- Adam optimizer with learning rate `1e-4`;
-- Huber loss with `delta=0.05`; and
-- root mean squared error as a Keras metric.
+Interactive route:
 
-The encoder, decoder, and model-construction functions are identified in the source as modifications of an MIT-licensed U-Net implementation by Vidushi Bhatia. Preserve the embedded attribution and license notice.
+```text
+goes_modis_downscaling/run_goes_modis_unet.ipynb
+```
 
-## Training configuration
-
-The scripted pipeline in `functions/unet1_main.py` currently uses:
-
-| Split | Date interval |
-|---|---|
-| Training | 2021-09-01 through 2022-09-01 |
-| Validation | 2022-09-02 through 2022-12-31 |
-| Testing | 2023-01-01 through 2023-06-15 |
-
-The notebook may contain the same or experimentally modified ranges. Confirm the active cells before running.
-
-The training callback configuration includes:
-
-- maximum of 500 epochs;
-- early stopping on validation loss with patience 15;
-- learning-rate reduction by a factor of 0.5 with patience 10;
-- restoration of the best weights; and
-- checkpoint saving to the configured `.weights.h5` path.
-
-Random seeds are fixed in the scripted workflow for Python, NumPy, and TensorFlow. Exact reproducibility can still depend on hardware, TensorFlow version, and nondeterministic accelerator operations.
-
-## Running the notebook
-
-Recommended sequence:
-
-1. restart the kernel;
-2. import packages and helper functions;
-3. verify all configured directories;
-4. load and inspect invalid dates;
-5. define non-overlapping train, validation, and test intervals;
-6. choose masked or unmasked GOES input;
-7. create predictor, target, and target-mask dictionaries;
-8. stack them into model tensors;
-9. inspect shapes and date counts;
-10. assert that every predictor value is finite;
-11. train from scratch, load checkpoint weights, or load a saved model;
-12. evaluate on the test set;
-13. save prediction arrays and GeoTIFFs; and
-14. save the exact ordered test-date list.
-
-## Running the script instead
-
-From the repository root:
+Script route, from the repository root:
 
 ```bash
-python functions/unet1_main.py
+python goes_modis_downscaling/goes_modis_unet.py
 ```
 
-Although that file currently begins with a Bash-style shebang, its contents are Python and it should be invoked with Python.
+Before running, confirm:
 
-Before running it, edit:
-
-- `function_path`;
-- `dest_folder`;
-- date ranges;
-- `goes_masked`;
-- `load_weights_bool`;
-- `load_model`; and
-- model/result paths in `albedo_unet1_fxns.py`.
-
-## Loading behavior
-
-`run_unet(...)` supports three modes:
-
-| `load_weights_bool` | `load_model` | Behavior |
-|---|---|---|
-| `False` | `False` | Build and train a new model. |
-| `True` | `False` | Build the architecture and initialize it from checkpoint weights before continued fitting. |
-| `False` | `True` | Load the saved Keras model before continued fitting. |
-
-Do not set both loading options to `True`. Confirm that a checkpoint or model was produced with a compatible architecture and TensorFlow version.
+- train, validation, and test date ranges;
+- masked or unmasked GOES selection;
+- invalid dates;
+- loading versus new-training flags;
+- output directories; and
+- exact tensor shapes and date counts.
 
 ## Outputs
 
-The workflow writes some or all of the following:
+The workflow may write:
 
-- Keras model file;
 - checkpoint weights;
+- a saved Keras model;
 - training-history JSON;
-- test-date JSON;
-- unpadded prediction array with shape `(N, 21, 19)` for the current AOI;
-- predicted GeoTIFFs using MODIS reference grids;
-- printed test loss and RMSE; and
-- printed masked R-squared.
+- ordered test-date metadata;
+- NumPy prediction arrays;
+- predicted GeoTIFFs using MODIS references;
+- printed loss and RMSE; and
+- masked R-squared diagnostics.
 
-Prediction filenames are based on the reference MODIS filename and commonly begin with:
+## Shared preprocessing modules
 
-```text
-predicted_
-```
+### `data_preprocessing.py`
 
-The NumPy output filename records train and test periods and whether masked GOES data was used.
+Supports GOES DQF analysis, scaling, clipping, reprojection, MODIS-grid matching, archive traversal, invalid-date analysis, and GOES-to-MODIS missing-pixel masking.
+
+### `modis_bluesky_albedo.py`
+
+Calculates blue-sky albedo as a mixture of MODIS BSA and WSA using a diffuse skylight fraction derived from aerosol and solar geometry.
+
+### `plot_fxns.py`
+
+Supports date-aware raster writing, masked R-squared and RMSE, interpolation for display, product comparison, field sampling, and publication plots. It is used heavily by `../GOES-Modis-Albedo-Postprocessing-main/Final-Visualizations.ipynb`.
 
 ## Validation checklist
 
-Before accepting a training run, verify:
+Verify:
 
 ```python
-assert goes_training_data_4d.shape == modis_training_data_4d.shape
-assert modis_training_mask_3d.shape == modis_training_data_4d.shape[:3]
-assert np.isfinite(goes_training_data_4d).all()
+assert goes_data.shape == modis_data.shape
+assert target_mask.shape == modis_data.shape[:3]
+assert np.isfinite(goes_data).all()
 ```
 
 Also confirm:
 
-- all three data splits are non-empty;
-- predictor and target dates are identical within each split;
-- date splits do not overlap;
-- masks contain only valid weights, normally 0 and 1;
-- test reference paths are sorted in the same date order as the test arrays;
-- prediction values are checked for physical plausibility; and
-- saved GeoTIFFs inherit the correct CRS and affine transform.
+- all splits are non-empty and non-overlapping;
+- predictor and target dates match;
+- scaling was applied once;
+- masks contain valid weights;
+- source paths and arrays use the same sorted date order;
+- predictions inherit the correct reference grid; and
+- outputs are physically plausible.
 
 ## Common problems
 
-### `ValueError: need at least one array to stack`
+### No arrays can be stacked
 
-No files passed the date, filename, invalid-date, or time filters. Print the parsed dates and inspect the configured directory.
+No files passed the path, date, filename, time, or invalid-date filters. Print parsed dates and active globs.
 
-### Predictor and target sample counts differ
+### Input and target counts differ
 
-One satellite is missing a date, filenames were parsed incorrectly, or invalid dates were not applied consistently. Build targets using the GOES date dictionary as the date gate.
+A date is missing from one source or exclusions were applied inconsistently.
 
-### `NaN` or infinity in inputs
+### Inputs contain NaN or infinity
 
-The interpolation step did not fill an edge or an entire raster is missing. Reject the date or provide a documented filling method rather than silently training with invalid values.
+Interpolation failed or a scene has no usable data. Reject or explicitly repair that scene.
 
-### Model shape error during concatenation
+### U-Net concatenation fails
 
-The input height or width is not compatible with the pooling depth. Pad both spatial dimensions to a suitable multiple and crop the prediction using the exact inverse operation.
+The padded dimensions are incompatible with pooling depth or data and mask padding differ.
 
-### Poor or negative R-squared
+### R-squared is poor or negative
 
-Check spatial alignment, scaling, target masks, temporal matching, train/test distribution, and missing-data thresholds before changing architecture. A low RMSE can coexist with poor R-squared when the target's spatial variance is small.
+Check temporal pairing, spatial alignment, scaling, masks, target variance, and distribution shift before changing the model.
 
-### Saved predictions do not match their dates
+## Next steps
 
-The path list was not sorted using the same dates as the stacked dictionary. Always derive reference paths from the sorted target dictionary and save `test_dates.json`.
-
-## Next step
-
-Use `../GOES-Modis-Albedo-Postprocessing-main/Final-Visualizations.ipynb` to rasterize legacy NumPy outputs, calculate date-matched metrics, and generate figures.
+- Evaluate and visualize the first-stage results in `../GOES-Modis-Albedo-Postprocessing-main/`.
+- Use first-stage prediction rasters in `../modis_s2_downscaling/`.
+- Compare with the direct route in `../goes_s2_downscaling/`.
 
 ## Credits
 
-Thanks are retained from the original project documentation to Dr. Utkarsh Mital for U-Net support, Dr. Daniel Feldman for Earth-science workflow references, Dr. William Rudisill for coding and Earth-science expertise, and Lawrence Berkeley National Laboratory for computational infrastructure.
+The source retains acknowledgments and attribution from the original workflow. Portions of the U-Net implementation are identified in the code as modifications of an MIT-licensed implementation by Vidushi Bhatia. Preserve those notices.
