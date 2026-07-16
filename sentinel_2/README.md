@@ -1,62 +1,60 @@
 # Sentinel-2 Albedo and Cloud-Assessment Workflows
 
-This directory contains the Sentinel-2 portion of the project. It supports retrieval and processing of Sentinel-2 L2A data, broadband albedo calculation at 20 m, snow and cloud screening, BRDF normalization, aerosol-based blue-sky albedo, optional topographic correction, matching with ARM Total Sky Imager observations, interpolation of sky-camera cloud masks, and visualization of outputs.
+This directory contains the Sentinel-2 portion of the project. It supports Sentinel-2 L2A retrieval, 20 m broadband albedo production, processing-baseline harmonization, cloud and snow screening, BRDF normalization, aerosol-based blue-sky albedo, optional terrain correction, ARM Total Sky Imager matching, image-based cloud-fraction analysis, and visualization.
 
-The generated shortwave albedo products also provide the targets for the second-stage MODIS-to-Sentinel-2 U-Net in `../s2_modis_downscaling/`.
+The generated shortwave blue-sky products are targets for both:
 
-## Directory contents
+- `../modis_s2_downscaling/`, which uses first-stage MODIS-scale predictions; and
+- `../goes_s2_downscaling/`, which uses GOES predictors directly.
+
+## Contents
 
 | Path | Purpose |
 |---|---|
-| `s2_20m_download_final.ipynb` | Interactive execution and inspection of the final Sentinel-2 20 m albedo workflow. |
-| `s2_20m_download_pc.ipynb` | Earlier or alternate Planetary Computer-based Sentinel-2 retrieval workflow. |
-| `s2_plots.ipynb` | Visualizes and compares Sentinel-2 albedo, quality, snow, or related output products. |
-| `baseline_change.ipynb` | Investigates Sentinel-2 processing-baseline changes and reflectance harmonization. |
-| `cloud_cover_fraction.ipynb` | Matches Sentinel-2 scenes with TSI observations and examines cloud-cover information. |
-| `natural_neighbor_interpolation.ipynb` | Processes TSI decision images and interpolates sky classifications/cloud fractions. |
-| `rgb_to_html.ipynb` | Builds HTML-oriented RGB or image visualizations from processed Sentinel-2 data. |
-| `s2_functions/` | Reusable production scripts and helper functions. See its README for detailed APIs and configuration. |
+| `s2_20m_download_final.ipynb` | Interactive execution and inspection of the principal 20 m albedo workflow. |
+| `s2_20m_download_pc.ipynb` | Earlier or alternate Planetary Computer retrieval workflow. |
+| `s2_plots.ipynb` | Albedo, QA, snow, cloud, and cross-product visualization. |
+| `baseline_change.ipynb` | Investigation of Sentinel-2 processing-baseline changes and reflectance harmonization. |
+| `cloud_cover_fraction.ipynb` | Sentinel-2 and TSI temporal matching and cloud-cover diagnostics. |
+| `natural_neighbor_interpolation.ipynb` | TSI decision-image processing, interpolation, and spatial cloud-fraction estimation. |
+| `rgb_to_html.ipynb` | Browser-oriented RGB and image visualization experiments. |
+| `packages.py` | Shared imports used by notebooks and scripts in this directory. |
+| `s2_functions/` | Reusable production and helper scripts. See its README. |
 
 ## Primary production scripts
 
-Two major Sentinel-2 processing routes are available in `s2_functions/`.
+### `s2_functions/s2_20m_download_final.py`
 
-### `s2_20m_download_final.py`
-
-This is the most comprehensive Sentinel-2 workflow in the repository. It includes:
+The principal workflow includes:
 
 - Planetary Computer Sentinel-2 L2A search;
 - AOI clipping and a common 20 m grid;
-- processing-baseline harmonization;
-- surface-reflectance scaling;
-- SCL cloud and invalid-pixel masking;
-- NDSI- or SCL-based snow detection;
+- reflectance scaling and processing-baseline harmonization;
+- SCL and cloud masking;
+- NDSI- or SCL-based snow identification;
 - hard and soft snow choices;
-- BRDF c-factor normalization;
 - SW, VIS, and NIR narrow-to-broadband albedo;
-- black-sky, white-sky, and blue-sky calculations;
-- diffuse-fraction lookup using aerosol information;
-- per-date GeoTIFF outputs;
-- quality-assurance layers;
-- stack/NetCDF/CSV bookkeeping; and
-- plotting or web-map support used by related notebooks.
+- BRDF normalization;
+- black-sky, white-sky, and blue-sky albedo;
+- aerosol-based diffuse-fraction lookup;
+- per-date rasters and QA products; and
+- stack, table, plot, and web-map support.
 
-### `s2_20m_albedo_topocorr_brdf_fusion.py`
+### `s2_functions/s2_20m_albedo_topocorr_brdf_fusion.py`
 
-This alternate workflow emphasizes:
+This alternate route emphasizes:
 
-- 20 m Sentinel-2 reflectance stacks;
 - cloud/shadow masking while retaining snow;
-- Copernicus DEM GLO-30 slope and aspect;
-- SCS+C terrain-illumination correction;
-- narrow-to-broadband shortwave albedo; and
-- fusion with MODIS MCD43A3 black-sky and white-sky albedo through ratio sharpening.
+- Copernicus DEM slope and aspect;
+- SCS+C terrain correction;
+- nine-band shortwave albedo; and
+- ratio sharpening of MODIS MCD43A3 BSA and WSA to 20 m.
 
-Use this route when topographic correction and MODIS BRDF fusion are the main objective. Its output definitions differ from those in the final download script, so keep the workflows and metadata clearly separated.
+Keep outputs from the two routes clearly identified because their corrections and product definitions differ.
 
-## Prerequisites
+## Setup
 
-Create the environment at the repository root:
+From the repository root:
 
 ```bash
 mamba env create -f environment.yml
@@ -65,31 +63,7 @@ python -m ipykernel install --user --name sail_env --display-name "Python (sail_
 jupyter lab
 ```
 
-The supplied environment includes the Planetary Computer client, PySTAC Client, Rasterio, GeoPandas, Xarray, SciPy, Dask, Earthaccess, and most plotting dependencies.
-
-Some exploratory notebooks also use packages such as OpenCV, Pillow, MetPy, or ImageIO. Install missing optional packages in `sail_env` only when the selected notebook requires them.
-
-## Required data and services
-
-Depending on the workflow, configure:
-
-- East River AOI shapefile;
-- Microsoft Planetary Computer STAC access;
-- Sentinel-2 L2A assets;
-- `GOES-Modis-Data-Preprocessing-main/sw_lut.csv`;
-- ARM TSI sky-cover `.cdf` files;
-- TSI decision-image `.png.tar` archives;
-- optional Doppler-lidar/cloud-base-height NetCDF data;
-- optional MODIS MCD43A3 files;
-- optional CERES or MODIS aerosol data;
-- optional Copernicus DEM GLO-30; and
-- output directories with enough space for daily multiband and single-band rasters.
-
-## Configure paths
-
-The notebooks and scripts contain absolute paths under `/bsuhome/tnde/...` and `~/geoscience/...`. Update them before import or execution.
-
-Recommended notebook setup:
+For notebook imports:
 
 ```python
 from pathlib import Path
@@ -97,297 +71,188 @@ import sys
 
 repo_root = Path("/path/to/downscaling_geostationary_land_surface_albedo")
 s2_root = repo_root / "sentinel_2"
+sys.path.append(str(s2_root))
 sys.path.append(str(s2_root / "s2_functions"))
-
-import matplotlib.pyplot as plt
-plt.style.use(repo_root / "MNRAS.mplstyle")
 ```
 
-Review at minimum:
+Because both directories contain a `packages.py`, keep the intended directory order explicit and avoid unrelated modules with the same name on `sys.path`.
 
-- `shapefile_path`;
-- `out_dir` or `OUT_DIR`;
-- `time_of_interest` or `DATE_RANGE`;
-- TSI `.cdf` directory;
-- TSI image archive directory;
+## Required inputs and services
+
+Depending on the route, configure:
+
+- East River AOI geometry;
+- Planetary Computer STAC access;
+- Sentinel-2 L2A assets;
+- `../GOES-Modis-Data-Preprocessing-main/sw_lut.csv`;
+- ARM TSI sky-cover `.cdf` files;
+- TSI decision-image archives;
+- optional MODIS MCD43A3 and aerosol data;
+- optional Copernicus DEM GLO-30; and
+- output directories for rasters, tables, stacks, images, and HTML products.
+
+## Required configuration
+
+The notebooks and scripts contain absolute `/bsuhome/tnde/...` and `~/geoscience/...` paths. Update at least:
+
+- AOI or shapefile path;
+- output directories;
+- date interval;
+- target CRS and resolution;
+- TSI and image-archive paths;
 - diffuse-skylight lookup path;
-- DEM/MODIS paths for the fusion workflow; and
-- helper `function_path` values inside notebooks.
+- DEM and MODIS paths for fusion; and
+- notebook helper-import paths.
 
-Several scripts read the AOI shapefile at import time, so the configured file must exist before importing the module.
+Some modules read the AOI during import.
 
 ## Sentinel-2 query and grid
 
-The final workflow queries the Planetary Computer `sentinel-2-l2a` collection using the AOI geometry and configured date interval.
+The final workflow queries the `sentinel-2-l2a` collection and uses a 20 m target grid. Native 10 m continuous bands are resampled to the common grid with an appropriate continuous method. SCL and other categorical layers require nearest-neighbor resampling.
 
-The current target resolution is:
-
-```text
-20 meters
-```
-
-This resolution accommodates B8A, B11, B12, and the 20 m scene-classification layer. Native 10 m bands are resampled to the target grid, normally with bilinear interpolation for continuous reflectance. Categorical masks must use nearest-neighbor resampling.
-
-Always sign Planetary Computer item assets immediately before access. Signed asset URLs can expire.
+Sign Planetary Computer assets immediately before access because signed URLs expire.
 
 ## Processing-baseline harmonization
 
-Sentinel-2 processing changes introduced a radiometric offset for newer products. The final script defines a cutoff of January 25, 2022 and a set of reflectance bands to harmonize.
+The workflow accounts for processing changes affecting newer Sentinel-2 reflectance products. `baseline_change.ipynb` helps compare scenes around the cutoff and verify the active harmonization.
 
-The `baseline_change.ipynb` notebook is intended for checking the effect of that change and confirming that scenes before and after the cutoff are comparable.
+Record the processing baseline and apply offsets only to affected reflectance bands, not to SCL or other categorical layers.
 
-When modifying harmonization:
+## Cloud and invalid-pixel screening
 
-- inspect the product baseline metadata;
-- apply offsets only to affected surface-reflectance bands;
-- do not alter SCL or quality layers as though they were reflectance; and
-- document whether reflectance is stored as digital numbers or scaled values.
-
-## Cloud and invalid-pixel masking
-
-The final workflow uses Sentinel-2 Scene Classification Layer classes. The active mask excludes configured no-data, saturation, cloud-shadow, unclassified, cloud, and cirrus classes.
-
-The alternative terrain-correction workflow excludes:
+The active SCL exclusions vary by workflow. The terrain-correction route excludes:
 
 ```text
 0, 1, 2, 3, 6, 8, 9, 10
 ```
 
-and intentionally retains snow/ice class 11.
-
-These class lists are not identical. Record the active list with every output product.
-
-Scene-level `eo:cloud_cover` can be used as a search pre-filter, but pixel-level masking remains necessary.
+and retains snow/ice class 11. Scene-level cloud metadata is only a pre-filter; use pixel-level screening for products and model targets.
 
 ## Snow identification
 
-The final script supports:
-
-- NDSI-based snow detection; or
-- SCL class 11.
-
-The current NDSI configuration uses:
+The final route supports NDSI-based snow or SCL class 11. Common NDSI settings in the project are:
 
 ```text
 NDSI threshold = 0.4
 green reflectance minimum = 0.2
 ```
 
-NDSI is calculated from green and SWIR reflectance. The workflow produces keep-all and snow-only variants and can maintain hard and soft snow-selection products.
+Outputs can include keep-all, snow-only, hard-choice, soft-choice, NDSI, probability, and QA variants. Validate the snow mask across terrain, vegetation, cloud, shadow, and seasonal transitions.
 
-Validate snow masks visually across autumn, winter, spring transition, forest, shadow, cloud, and bare-ground conditions. Thresholds suitable for East River may not transfer directly to another region.
+## Broadband and BRDF products
 
-## Broadband albedo
+The final workflow uses separate snow and snow-free coefficient sets for SW, VIS, and NIR albedo. Reflectance must be in the expected scale before applying coefficients.
 
-The final workflow includes separate coefficient sets for snow and snow-free surfaces from Li et al. (2018).
-
-It calculates:
-
-- shortwave albedo;
-- visible albedo; and
-- near-infrared albedo.
-
-Reflectance inputs must be scaled to the `0-1` range before applying the linear coefficients. Check outputs for physically implausible values and decide whether clipping is scientifically justified for the intended analysis.
-
-The alternate terrain-correction workflow uses a nine-band narrow-to-broadband weighted sum with B02, B03, B04, B05, B06, B07, B08, B11, and B12.
-
-## BRDF and blue-sky albedo
-
-The final workflow contains BRDF kernel coefficients for MODIS-equivalent spectral bands and a reference geometry of:
-
-```text
-solar zenith angle: 45 degrees
-view zenith angle:   0 degrees
-relative azimuth:    0 degrees
-```
-
-It can derive black-sky and white-sky albedo and then combine them with a diffuse fraction:
+It can produce BSA, WSA, and blue-sky albedo using:
 
 ```text
 blue_sky = (1 - diffuse_fraction) * black_sky
            + diffuse_fraction * white_sky
 ```
 
-The diffuse fraction can use Sentinel-2 aerosol optical thickness and `sw_lut.csv`, or an alternate aerosol source according to the active configuration.
-
-Verify that lookup-table AOD columns and solar-angle rows cover the observed values.
-
-## Optional topographic correction
-
-`s2_20m_albedo_topocorr_brdf_fusion.py`:
-
-1. loads a projected DEM;
-2. calculates slope and aspect;
-3. derives local illumination from solar geometry;
-4. applies SCS+C correction per band; and
-5. calculates terrain-corrected shortwave albedo.
-
-The current SCS+C helper estimates a correction term from scene statistics. Treat it as a research implementation and validate it against uncorrected reflectance, terrain aspect, solar geometry, and field observations.
+The alternate terrain-correction route uses B02, B03, B04, B05, B06, B07, B08, B11, and B12 with configured narrow-to-broadband weights.
 
 ## ARM TSI matching
 
-`cloud_cover_fraction.ipynb`, `natural_neighbor_interpolation.ipynb`, and `s2_functions/tsi_functions.py` connect Sentinel-2 scenes to ARM Total Sky Imager data.
+The TSI workflows:
 
-The matching workflow:
+1. locate `.cdf` files from the Sentinel-2 acquisition date;
+2. remove fill values such as `-100`;
+3. apply thin- and opaque-cloud thresholds;
+4. find the nearest valid TSI timestamp; and
+5. return aligned TSI and Sentinel-2 records.
 
-1. groups Sentinel-2 items by UTC date;
-2. locates a TSI `.cdf` file containing the same calendar date;
-3. removes TSI fill values, usually `-100`;
-4. filters thin and opaque cloud percentages by configured thresholds;
-5. finds the nearest TSI timestamp to each Sentinel-2 acquisition; and
-6. returns aligned TSI times, Sentinel-2 items, and source filenames.
-
-A 30-minute maximum separation is described in the helper documentation, but the enforcing check is commented in the current implementation. Reinstate and test the tolerance when strict temporal matching is required.
+The current helper contains a described 30-minute tolerance whose enforcement should be checked in the active calling workflow. Normalize timestamps to UTC.
 
 ## TSI decision-image interpolation
 
-`natural_neighbor_interpolation.ipynb` works with TSI decision images stored in compressed archives and uses image processing plus spatial interpolation to fill or analyze cloud classification.
+`natural_neighbor_interpolation.ipynb` uses image processing, triangulation, natural-neighbor or grid interpolation, fallback methods, and circular spatial masks to estimate cloud fractions from TSI decision images. Process large archives incrementally and verify timestamp alignment before exporting model-screening tables.
 
-The notebook includes dependencies and experiments involving:
+## Model-ready output convention
 
-- OpenCV and Pillow image handling;
-- HSV or color-class processing;
-- Delaunay triangulation;
-- natural-neighbor interpolation through MetPy;
-- SciPy linear/grid interpolation fallbacks;
-- Qhull error handling; and
-- cloud-fraction calculation over a defined circular field of view.
-
-Large image archives should be processed incrementally. Verify that image timestamps, TSI timestamps, and Sentinel-2 UTC times are aligned before exporting a cloud-fraction CSV.
-
-## Notebook guide
-
-### `s2_20m_download_final.ipynb`
-
-Use for interactive runs of the final albedo pipeline. Restart the kernel, configure paths and dates, run cells in order, and inspect a small number of scenes before processing the full interval.
-
-### `s2_20m_download_pc.ipynb`
-
-Use as a reference for Planetary Computer retrieval and earlier processing experiments. Compare active coefficients and masks with the final script before using its outputs in model training.
-
-### `baseline_change.ipynb`
-
-Use to diagnose reflectance differences around the Sentinel-2 processing-baseline cutoff and confirm the harmonization method.
-
-### `cloud_cover_fraction.ipynb`
-
-Use to inspect TSI thin/opaque cloud time series beside matched Sentinel-2 RGB images and to compare scene metadata with ground-based sky observations.
-
-### `natural_neighbor_interpolation.ipynb`
-
-Use to build cloud masks or cloud fractions from TSI decision imagery and produce matched cloud-screening information.
-
-### `rgb_to_html.ipynb`
-
-Use to prepare browser-viewable RGB imagery or HTML outputs. Confirm that generated HTML references accessible local or embedded assets before sharing it.
-
-### `s2_plots.ipynb`
-
-Use for final plotting and cross-product visual checks. Update all paths and keep output scale, CRS, color range, snow mask, and date in each figure caption.
-
-## Expected outputs
-
-Depending on the selected workflow, outputs may include:
-
-- per-date 20 m SW, VIS, and NIR albedo GeoTIFFs;
-- keep-all and snow-only products;
-- hard and soft snow-choice products;
-- black-sky, white-sky, and blue-sky albedo;
-- terrain-corrected shortwave albedo;
-- MODIS-fused 20 m BSA and WSA;
-- NDSI, snow probability, snow mask, and processing-choice QA layers;
-- time-indexed Xarray/NetCDF stacks;
-- per-date metadata or summary CSV files;
-- TSI/Sentinel-2 match tables;
-- interpolated cloud-fraction CSV used by U-Net 2;
-- RGB, diagnostic, time-series, and map figures; and
-- HTML visualization products.
-
-Output file patterns in the second U-Net currently expect:
+The two 20 m U-Net directories currently expect target filenames of the form:
 
 ```text
 YYYY-MM-DD_S2_BLUE20m_SW_hard.tif
 ```
 
-Do not change this pattern without updating `../s2_modis_downscaling/modis_s2_unet2.py`.
-
-## Recommended execution sequence
+The cloud table is commonly named:
 
 ```text
-1. Configure AOI, output paths, date range, and credentials.
-2. Query a short Sentinel-2 date interval.
-3. Inspect baseline metadata, assets, CRS, and scale.
-4. Produce one test scene at 20 m.
-5. Validate SCL/cloud and snow masks.
-6. Validate SW/VIS/NIR and BRDF outputs.
-7. Match TSI data and create cloud-fraction diagnostics.
-8. Process the full date interval.
-9. Build summary stacks and visualizations.
-10. Select model-ready scenes and record all exclusions.
-11. Run the second U-Net in `../s2_modis_downscaling/`.
+tsi_cloud_fractions.csv
 ```
 
-## Quality-control checklist
+and the current model scripts filter on `cf_interp`. Update both model directories if these conventions change.
 
-For every retained date, confirm:
+## Recommended sequence
 
-- acquisition time and product baseline;
-- asset signing and successful read;
-- CRS, affine transform, width, height, and 20 m resolution;
+1. Configure paths, AOI, date range, and credentials.
+2. Query a short test interval.
+3. inspect item metadata, assets, CRS, and reflectance scale.
+4. Verify harmonization and masks.
+5. Produce and inspect albedo and QA rasters.
+6. Match TSI data and generate cloud diagnostics.
+7. Process the full interval.
+8. Record retained and excluded dates.
+9. Use targets in `../modis_s2_downscaling/` or `../goes_s2_downscaling/`.
+
+## Expected outputs
+
+Outputs may include:
+
+- daily 20 m SW, VIS, and NIR albedo;
+- keep-all and snow-only products;
+- hard and soft snow-choice products;
+- BSA, WSA, and blue-sky albedo;
+- terrain-corrected and MODIS-fused products;
+- NDSI, masks, probability, and QA layers;
+- NetCDF or Xarray stacks;
+- TSI match and cloud-fraction tables;
+- RGB, map, diagnostic, and time-series figures; and
+- browser-viewable HTML products.
+
+## Quality control
+
+For every retained date, verify:
+
+- acquisition time and processing baseline;
+- successful signed-asset access;
+- CRS, transform, shape, and 20 m resolution;
 - reflectance scaling and harmonization;
-- cloud/SCL exclusion classes;
-- NDSI and snow-choice behavior;
-- aerosol and diffuse-fraction validity;
-- finite-pixel percentage;
-- albedo value range and spatial pattern;
-- correct keep-all versus snow-only semantics;
-- match to the correct TSI timestamp and file; and
-- output filename date and target variable.
+- SCL and cloud exclusions;
+- snow-choice behavior;
+- coefficient and band order;
+- aerosol lookup coverage;
+- finite-pixel fraction;
+- target filename and variable; and
+- TSI timestamp and temporal separation.
 
 ## Common problems
 
-### Planetary Computer asset cannot be opened
+### Asset authorization fails
 
-Sign the item or asset again. Signed URLs expire, and unsigned HTTPS assets may return authorization errors.
+Re-sign the Planetary Computer assets.
 
-### No Sentinel-2 items are returned
+### No items are returned
 
-Check AOI geometry validity, WGS84 coordinate order, date interval, collection name, and optional cloud query.
+Check AOI validity, longitude/latitude order, collection name, date range, and cloud query.
 
-### Output appears offset from the AOI
+### Output is spatially offset
 
-Verify the target transform and CRS. Reproject vectors and rasters rather than relabeling CRSs.
+Reproject rather than relabeling the CRS, and compare transforms and bounds.
 
-### Snow is confused with cloud
+### Snow and cloud are confused
 
-Inspect SCL, NDSI, green reflectance, SWIR reflectance, cloud classes, and TSI information together. Do not rely on a single scene-level cloud percentage.
+Inspect SCL, NDSI, visible and SWIR reflectance, and TSI evidence together.
 
-### TSI matching returns unexpected times
+### TSI times are unexpected
 
-Normalize both sources to UTC and enforce a maximum time difference. Check whether TSI timestamps are stored as timezone-naive UTC values.
+Normalize to UTC and enforce an explicit maximum time difference.
 
-### Natural-neighbor interpolation fails with Qhull errors
+### Interpolation raises Qhull errors
 
-The valid sample points may be too few, duplicated, or nearly collinear. Remove duplicates and use the documented linear or nearest fallback when scientifically acceptable.
-
-### Notebook import refers to a missing module
-
-Some notebooks retain older names such as `s2_20m_download`. Import `s2_20m_download_final` or update the helper name deliberately after comparing behavior.
+Remove duplicate or degenerate points and use a documented fallback only when scientifically acceptable.
 
 ## Reproducibility
 
-For every Sentinel-2 product set, save:
-
-- STAC item IDs;
-- acquisition and processing timestamps;
-- processing baseline;
-- active coefficient tables;
-- reflectance scaling and harmonization rule;
-- SCL exclusion classes;
-- NDSI and snow thresholds;
-- BRDF reference geometry;
-- aerosol source and lookup table;
-- terrain-correction settings;
-- TSI temporal tolerance and cloud thresholds;
-- AOI geometry and target grid; and
-- repository commit.
+Record item IDs, acquisition and processing timestamps, processing baseline, coefficient sets, masks, snow thresholds, BRDF geometry, aerosol source, terrain settings, TSI thresholds, AOI, target grid, exclusions, and repository commit.
