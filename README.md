@@ -17,7 +17,7 @@ The repository currently supports three model routes:
 
 The Sentinel-2 workflows can also independently produce broadband SW, VIS, and NIR albedo, snow masks, BRDF-normalized products, terrain-corrected products, cloud diagnostics, and MODIS-fused BSA and WSA products.
 
-The final data product created from the project is hosted on Zenodo with DOI: [https://doi.org/10.5281/zenodo.21798650](https://doi.org/10.5281/zenodo.21798650).
+The final data products created from the project is hosted on Zenodo with DOI: [https://doi.org/10.5281/zenodo.21798650](https://doi.org/10.5281/zenodo.21798650).
 
 ## Processing routes
 
