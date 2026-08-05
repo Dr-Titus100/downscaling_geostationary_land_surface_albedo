@@ -231,3 +231,6 @@ webmap*/
 *.tiff
 *.zip
 *.tar
+
+# macOS metadata
+.DS_Store

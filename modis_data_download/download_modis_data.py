@@ -1,10 +1,9 @@
+import datetime
+import earthaccess
+from pathlib import Path
+import geopandas as gpd
 import matplotlib.pyplot as plt
 from shapely.geometry import box
-import geopandas as gpd
-import earthaccess
-import datetime
-from pathlib import Path
-
 
 def print_modis_shapefile_details():
     colorado_shapefile_path = '/global/homes/f/feyu39/MODIS/Colorado_State_Boundary.shp'
